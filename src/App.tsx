@@ -14,6 +14,7 @@ import Planning from './pages/Planning';
 import Journal from './pages/Journal';
 import Cinema from './pages/Cinema';
 import Sound from './pages/Sound';
+import Callback from './pages/Callback';
 import { useUser } from './context/UserContext';
 import { motion } from 'motion/react';
 
@@ -77,6 +78,7 @@ function AppContent() {
             <Route path="/reflection" element={<Journal />} />
             <Route path="/cinema" element={<Cinema />} />
             <Route path="/sound" element={<Sound />} />
+            <Route path="/callback" element={<Callback />} />
           </Routes>
         </main>
         

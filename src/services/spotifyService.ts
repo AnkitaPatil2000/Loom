@@ -3,7 +3,7 @@
  */
 
 const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
-const REDIRECT_URI = window.location.origin + '/sound';
+const REDIRECT_URI = window.location.origin + '/callback';
 const AUTH_ENDPOINT = "https://accounts.spotify.com/authorize";
 const TOKEN_ENDPOINT = "https://accounts.spotify.com/api/token";
 const SCOPES = [
@@ -23,6 +23,10 @@ interface SpotifyTokenResponse {
 
 export const spotifyAuth = {
   async login() {
+    if (!SPOTIFY_CLIENT_ID) {
+      throw new Error('Spotify Client ID not configured');
+    }
+
     const codeVerifier = generateCodeVerifier(128);
     const codeChallenge = await generateCodeChallenge(codeVerifier);
     
@@ -43,25 +47,38 @@ export const spotifyAuth = {
   async handleCallback(code: string) {
     const codeVerifier = window.localStorage.getItem('spotify_code_verifier');
     
+    if (!codeVerifier) {
+      throw new Error('Code verifier not found');
+    }
+
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
       code: code,
       redirect_uri: REDIRECT_URI,
       client_id: SPOTIFY_CLIENT_ID,
-      code_verifier: codeVerifier!,
+      code_verifier: codeVerifier,
     });
 
-    const response = await fetch(TOKEN_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body,
-    });
+    try {
+      const response = await fetch(TOKEN_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body,
+      });
 
-    if (!response.ok) throw new Error('Failed to exchange token');
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Spotify token error:', errorData);
+        throw new Error(errorData.error_description || 'Failed to exchange token');
+      }
 
-    const data: SpotifyTokenResponse = await response.json();
-    this.saveTokens(data);
-    return data;
+      const data: SpotifyTokenResponse = await response.json();
+      this.saveTokens(data);
+      return data;
+    } catch (error) {
+      console.error('Spotify callback fatal error:', error);
+      throw error;
+    }
   },
 
   saveTokens(data: SpotifyTokenResponse) {
@@ -78,7 +95,47 @@ export const spotifyAuth = {
     const token = this.getAccessToken();
     const expiresAt = window.localStorage.getItem('spotify_expires_at');
     if (!token || !expiresAt) return false;
-    return Date.now() < parseInt(expiresAt);
+    // We consider logged in even if expired, because we can refresh
+    return !!token;
+  },
+
+  async getValidToken() {
+    const token = this.getAccessToken();
+    const expiresAt = window.localStorage.getItem('spotify_expires_at');
+    
+    if (!token || !expiresAt) return null;
+
+    if (Date.now() < parseInt(expiresAt)) {
+      return token;
+    }
+
+    const refreshToken = window.localStorage.getItem('spotify_refresh_token');
+    if (!refreshToken) return null;
+
+    // Refresh token
+    const body = new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: SPOTIFY_CLIENT_ID!,
+    });
+
+    try {
+      const response = await fetch(TOKEN_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body,
+      });
+
+      if (!response.ok) throw new Error('Token refresh failed');
+
+      const data = await response.json();
+      this.saveTokens(data);
+      return data.access_token;
+    } catch (error) {
+      console.error('Spotify refresh error:', error);
+      this.logout();
+      return null;
+    }
   },
 
   logout() {
@@ -94,7 +151,7 @@ export const spotifyAuth = {
  */
 export const spotifyApi = {
   async fetchWithAuth(endpoint: string) {
-    const token = spotifyAuth.getAccessToken();
+    const token = await spotifyAuth.getValidToken();
     if (!token) throw new Error('Not authenticated with Spotify');
 
     const response = await fetch(`https://api.spotify.com/v1${endpoint}`, {
@@ -102,7 +159,6 @@ export const spotifyApi = {
     });
 
     if (response.status === 401) {
-       // Token expired? In a real app we'd refresh here.
        throw new Error('Spotify session expired');
     }
 

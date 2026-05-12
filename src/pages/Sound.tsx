@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Music, Play, Pause, Volume2, VolumeX, Wind, Droplets, Flame, Coffee, Bird, Zap, Waves, LogIn, History, ListMusic, User, Disc, Heart, TrendingUp } from 'lucide-react';
+import { Music, Play, Pause, Volume2, VolumeX, Wind, Droplets, Flame, Coffee, Bird, Zap, Waves, LogIn, History, ListMusic, User, Disc, Heart, TrendingUp, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useUser } from '../context/UserContext';
 import { syncSoundPreferences } from '../services/firebaseService';
@@ -35,11 +35,20 @@ export default function Sound() {
     currentTrack?.item ? 'cinematic' : (activeSound ? localSounds.find(s => s.id === activeSound)?.mood : undefined)
   );
 
+  const [spotifyError, setSpotifyError] = useState<string | null>(null);
+
   const loadSpotifyData = useCallback(async () => {
     if (!spotifyAuth.isLoggedIn()) return;
     
     setIsLoadingSpotify(true);
+    setSpotifyError(null);
     try {
+      const token = await spotifyAuth.getValidToken();
+      if (!token) {
+        setIsSpotifyLoggedIn(false);
+        return;
+      }
+
       const [track, recent, list, artists] = await Promise.all([
         spotifyApi.getCurrentTrack(),
         spotifyApi.getRecentlyPlayed(),
@@ -51,25 +60,16 @@ export default function Sound() {
       setRecentPlayed(recent?.items || []);
       setPlaylists(list?.items || []);
       setTopArtists(artists?.items || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Spotify sync error:", error);
+      setSpotifyError(error.message || "Failed to sync with Spotify");
     } finally {
       setIsLoadingSpotify(false);
     }
   }, []);
 
   useEffect(() => {
-    // Handle OAuth Callback
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    
-    if (code) {
-      spotifyAuth.handleCallback(code).then(() => {
-        setIsSpotifyLoggedIn(true);
-        window.history.replaceState({}, document.title, window.location.pathname);
-        loadSpotifyData();
-      });
-    } else if (isSpotifyLoggedIn) {
+    if (isSpotifyLoggedIn) {
       loadSpotifyData();
     }
   }, [isSpotifyLoggedIn, loadSpotifyData]);
@@ -141,9 +141,14 @@ export default function Sound() {
             <span>Connect Spotify</span>
           </button>
         ) : (
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-center">
+            {spotifyError && (
+              <span className="text-error font-sans text-[10px] font-bold uppercase tracking-widest bg-error/10 px-4 py-2 rounded-lg flex items-center gap-2">
+                <AlertCircle size={12} /> {spotifyError}
+              </span>
+            )}
             <button 
-              onClick={() => { spotifyAuth.logout(); setIsSpotifyLoggedIn(false); }}
+              onClick={() => { spotifyAuth.logout(); setIsSpotifyLoggedIn(false); setSpotifyError(null); }}
               className="font-sans text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/40 hover:text-error transition-colors"
             >
               Sign out of Spotify

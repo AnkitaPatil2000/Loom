@@ -8,11 +8,11 @@ const BASE_URL = "https://api.themoviedb.org/3";
 export const movieService = {
   async fetchTMDB(endpoint: string) {
     if (!TMDB_API_KEY) {
-        // Return null if no key, handle gracefully in UI
         return null;
     }
     
-    const response = await fetch(`${BASE_URL}${endpoint}?api_key=${TMDB_API_KEY}`);
+    const separator = endpoint.includes('?') ? '&' : '?';
+    const response = await fetch(`${BASE_URL}${endpoint}${separator}api_key=${TMDB_API_KEY}`);
     if (!response.ok) return null;
     return response.json();
   },

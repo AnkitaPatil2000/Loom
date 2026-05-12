@@ -45,6 +45,8 @@ export default function Cinema() {
     if (savedLogs) setLogs(JSON.parse(savedLogs));
   }, []);
 
+  const [rating, setRating] = useState(5);
+
   const saveLog = (log: LogEntry) => {
     const newLogs = [log, ...logs];
     setLogs(newLogs);
@@ -52,6 +54,7 @@ export default function Cinema() {
     setShowLogModal(null);
     setSearchResults([]);
     setSearchQuery('');
+    setRating(5);
   };
 
   const deleteLog = (id: string) => {
@@ -63,9 +66,19 @@ export default function Cinema() {
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
-    const data = await movieService.searchMovies(searchQuery);
-    setSearchResults(data?.results?.slice(0, 5) || []);
-    setIsSearching(false);
+    try {
+      const data = await movieService.searchMovies(searchQuery);
+      if (data === null) {
+        alert("TMDB API Key missing. Please add VITE_TMDB_API_KEY in the Secrets panel.");
+        setSearchResults([]);
+      } else {
+        setSearchResults(data?.results?.slice(0, 5) || []);
+      }
+    } catch (error) {
+      console.error("Search failed:", error);
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   const generateNewAtmosphere = () => {
@@ -295,7 +308,13 @@ export default function Cinema() {
                         <label className="font-sans text-[10px] font-black uppercase tracking-widest opacity-30">Reflection Rating</label>
                         <div className="flex gap-4">
                            {[1, 2, 3, 4, 5].map((s) => (
-                             <button key={s} className="hover:scale-125 transition-transform text-primary"><Star size={24} /></button>
+                             <button 
+                               key={s} 
+                               onClick={() => setRating(s)}
+                               className={`hover:scale-125 transition-transform ${s <= rating ? 'text-primary' : 'text-on-surface-variant/20'}`}
+                             >
+                                <Star size={24} fill={s <= rating ? "currentColor" : "none"} />
+                             </button>
                            ))}
                         </div>
                       </div>
@@ -318,7 +337,7 @@ export default function Cinema() {
                           tmdbId: showLogModal.id,
                           title: showLogModal.title,
                           posterPath: showLogModal.poster_path,
-                          rating: 5, // Simplified for demo
+                          rating,
                           note,
                           date: new Date().toISOString(),
                           mood: 'cinematic'
