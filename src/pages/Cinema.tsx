@@ -81,18 +81,34 @@ export default function Cinema() {
     }
   };
 
-  const generateNewAtmosphere = () => {
+  const generateNewAtmosphere = async () => {
     setIsGenerating(true);
-    setTimeout(() => {
+    try {
+      const backdrop = await movieService.getTrendingBackdrop();
+      if (backdrop) {
         const newScene = {
-            id: Date.now().toString(),
-            title: 'Generated Ethereal Plain',
-            intensity: 'Unique',
-            url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=2000'
+          id: Date.now().toString(),
+          title: backdrop.title,
+          intensity: backdrop.intensity,
+          url: backdrop.url
         };
         setScenes([newScene, ...scenes]);
-        setIsGenerating(false);
-    }, 3000);
+        setSelectedScene(newScene); // Immediately enter the generated atmosphere
+      } else {
+        // Fallback if TMDB fails
+        const newScene = {
+          id: Date.now().toString(),
+          title: 'Generated Ethereal Plain',
+          intensity: 'Unique',
+          url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=2000'
+        };
+        setScenes([newScene, ...scenes]);
+      }
+    } catch (error) {
+      console.error("Atmosphere generation failed:", error);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -105,7 +121,50 @@ export default function Cinema() {
         transition: 'background 2s ease-in-out'
       }}
     >
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8">
+      <style>
+        {`
+          @keyframes float {
+            0%, 100% { transform: translateY(0) translateX(0); opacity: 0; }
+            50% { opacity: 0.2; }
+            100% { transform: translateY(-100px) translateX(20px); opacity: 0; }
+          }
+          .dust-particle {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            pointer-events: none;
+            filter: blur(1px);
+          }
+        `}
+      </style>
+
+      {/* Atmospheric Texture Overlay */}
+      <div className="fixed inset-0 pointer-events-none z-[1] opacity-[0.03] mix-blend-overlay" 
+        style={{ 
+          backgroundImage: `url('https://grainy-gradients.vercel.app/noise.svg')`,
+          backgroundSize: '100px 100px'
+        }}
+      />
+
+      {/* Ambient Dust Particles */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        {Array.from({ length: 20 }).map((_, i) => (
+          <div 
+            key={i}
+            className="dust-particle"
+            style={{
+              width: Math.random() * 3 + 'px',
+              height: Math.random() * 3 + 'px',
+              left: Math.random() * 100 + '%',
+              top: Math.random() * 100 + '%',
+              animation: `float ${Math.random() * 10 + 10}s infinite linear`,
+              animationDelay: `-${Math.random() * 10}s`
+            }}
+          />
+        ))}
+      </div>
+
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 relative z-10">
         <div className="space-y-3">
            <span className="font-sans text-xs font-black text-primary tracking-[0.3em] uppercase opacity-40 block">Visual Resonator</span>
            <h1 className="font-display text-7xl md:text-8xl font-bold italic text-on-background tracking-tighter leading-[0.85]">Cinema.</h1>

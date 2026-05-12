@@ -17,6 +17,17 @@ export const movieService = {
     return response.json();
   },
 
+  async getTrendingBackdrop() {
+    const data = await this.fetchTMDB('/trending/movie/week');
+    if (!data || !data.results || data.results.length === 0) return null;
+    const randomMovie = data.results[Math.floor(Math.random() * data.results.length)];
+    return {
+      title: randomMovie.title || randomMovie.name,
+      url: `https://image.tmdb.org/t/p/original${randomMovie.backdrop_path}`,
+      intensity: randomMovie.vote_average > 7 ? 'High' : 'Subtle'
+    };
+  },
+
   async searchMovies(query: string) {
     return this.fetchTMDB(`/search/movie?query=${encodeURIComponent(query)}`);
   },
