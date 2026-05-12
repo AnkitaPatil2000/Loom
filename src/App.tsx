@@ -14,6 +14,9 @@ import Planning from './pages/Planning';
 import Journal from './pages/Journal';
 import Cinema from './pages/Cinema';
 import Sound from './pages/Sound';
+import Login from './pages/Login';
+import { useUser } from './context/UserContext';
+import { motion } from 'motion/react';
 
 // Lazy load or import other pages once created
 // For now, let's use placeholders for other pages to avoid compilation errors
@@ -30,6 +33,25 @@ const Placeholder = ({ title }: { title: string }) => (
 
 function AppContent() {
   const location = useLocation();
+  const { user, loading } = useUser();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center paper-texture bg-surface">
+        <motion.div 
+          animate={{ scale: [1, 1.1, 1], opacity: [0.4, 0.8, 0.4] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          className="font-display text-4xl font-bold italic text-primary"
+        >
+          loom.
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
   
   const getTitle = (pathname: string) => {
     switch (pathname) {

@@ -6,7 +6,7 @@ interface TopAppBarProps {
 }
 
 export default function TopAppBar({ title }: TopAppBarProps) {
-  const { user, signIn, signOut } = useUser();
+  const { user, profile, signIn, signOut } = useUser();
 
   return (
     <header className="fixed top-0 right-0 w-[calc(100%-var(--spacing-sidebar))] h-20 bg-background/80 border-b border-outline flex justify-between items-center px-16 z-40 backdrop-blur-xl">
@@ -34,16 +34,59 @@ export default function TopAppBar({ title }: TopAppBarProps) {
           </div>
           
           {user ? (
-            <button 
-              onClick={() => signOut()}
-              className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden border border-outline hover:ring-2 hover:ring-primary/20 transition-all"
-            >
-              {user.photoURL ? (
-                <img src={user.photoURL} alt={user.displayName || ''} className="w-full h-full object-cover" />
-              ) : (
-                <span className="font-display text-xs font-bold text-primary">{user.displayName?.[0] || user.email?.[0]}</span>
-              )}
-            </button>
+            <div className="relative group/auth">
+              <button 
+                className="flex items-center gap-4 bg-primary/5 pl-4 pr-1.5 py-1.5 rounded-full border border-outline/10 hover:bg-primary/10 transition-all cursor-default"
+              >
+                <div className="flex flex-col items-end">
+                  <span className="font-sans text-[10px] font-bold text-on-surface leading-tight tracking-tight">{user.displayName || 'Architect'}</span>
+                  <span className="font-sans text-[8px] text-on-surface-variant/60 leading-tight uppercase tracking-widest">{profile?.role || 'Loom Resident'}</span>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden border border-outline/20">
+                  {user.photoURL ? (
+                    <img src={user.photoURL} alt={user.displayName || ''} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="font-display text-xs font-bold text-primary">{user.displayName?.[0] || user.email?.[0]}</span>
+                  )}
+                </div>
+              </button>
+              
+              <div className="absolute top-full right-0 mt-4 w-64 bg-white/80 backdrop-blur-3xl rounded-3xl border border-outline/10 shadow-2xl shadow-black/10 opacity-0 invisible group-hover/auth:opacity-100 group-hover/auth:visible translate-y-2 group-hover/auth:translate-y-0 transition-all duration-300 z-50 p-6 overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-primary/40"></div>
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden border border-outline/10">
+                    {user.photoURL ? (
+                      <img src={user.photoURL} alt={user.displayName || ''} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="font-display text-lg font-bold text-primary">{user.displayName?.[0] || user.email?.[0]}</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-display text-sm font-bold text-on-background line-clamp-1">{user.displayName}</span>
+                    <span className="font-sans text-[10px] text-on-surface-variant/60 truncate max-w-[140px]">{user.email}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1 mb-6">
+                   <div className="flex justify-between font-sans text-[10px] uppercase tracking-widest text-on-surface-variant/40 mb-2 font-black">Account Statistics</div>
+                   <div className="flex justify-between items-center py-2">
+                      <span className="font-sans text-xs text-on-surface-variant">Loom Sync</span>
+                      <span className="font-mono text-[10px] bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter">Active</span>
+                   </div>
+                   <div className="flex justify-between items-center py-2">
+                      <span className="font-sans text-xs text-on-surface-variant">Session</span>
+                      <span className="font-mono text-[10px] opacity-40 font-bold uppercase tracking-tighter">Persistent</span>
+                   </div>
+                </div>
+
+                <button 
+                  onClick={() => signOut()}
+                  className="w-full flex items-center justify-center gap-3 bg-error/5 text-error hover:bg-error hover:text-white px-4 py-3 rounded-2xl font-sans text-[10px] font-bold tracking-[0.1em] uppercase transition-all"
+                >
+                  Terminate Session
+                </button>
+              </div>
+            </div>
           ) : (
             <button 
               onClick={() => signIn()}

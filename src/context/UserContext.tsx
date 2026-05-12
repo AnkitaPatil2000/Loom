@@ -21,6 +21,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
+  useEffect(() => {
     let unsubscribeProfile: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (authenticatedUser) => {
@@ -62,11 +69,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await loginWithGoogle();
     } catch (err: any) {
+      if (err.code === 'auth/popup-closed-by-user') {
+        // Silently handle popup closure - user knows they closed it
+        return;
+      }
+      
       console.error("Login Error:", err);
       setError(err.message || "Failed to sign in");
-      // If internal error, it might be due to popup blockage or cross-origin issues
+      
       if (err.code === 'auth/internal-error') {
-        alert("Authentication encountered an internal error. This can happen due to popup blockers or browser settings. Please try again or check your browser settings.");
+        // Provide a more helpful secondary message for specific browser barriers
+        setError("Sign-in error. Please ensure popups are allowed for this site and you aren't in private browsing mode.");
       }
     }
   };
