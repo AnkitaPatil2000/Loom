@@ -77,6 +77,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error("Login Error:", err);
       setError(err.message || "Failed to sign in");
       
+      if (err.code === 'auth/unauthorized-domain') {
+        setError("Domain not authorized. Please add this domain to your Firebase Authentication settings.");
+        return;
+      }
+
       if (err.code === 'auth/internal-error') {
         // Provide a more helpful secondary message for specific browser barriers
         setError("Sign-in error. Please ensure popups are allowed for this site and you aren't in private browsing mode.");

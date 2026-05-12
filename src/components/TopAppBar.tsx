@@ -88,13 +88,22 @@ export default function TopAppBar({ title }: TopAppBarProps) {
               </div>
             </div>
           ) : (
-            <button 
-              onClick={() => signIn()}
-              className="flex items-center gap-3 bg-primary text-on-primary px-6 py-2 rounded-full font-sans text-[10px] font-bold tracking-[0.1em] uppercase hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-95"
-            >
-              <LogIn size={14} />
-              <span>Connect</span>
-            </button>
+            <div className="flex items-center gap-6">
+              <span className="font-sans text-[10px] text-on-surface-variant/40 italic font-medium hidden md:block">
+                Sign in to sync your workspace.
+              </span>
+              <button 
+                onClick={() => signIn()}
+                className="flex items-center gap-3 bg-white text-on-background border border-outline/20 px-6 py-2.5 rounded-full font-sans text-[10px] font-bold tracking-tight hover:shadow-xl hover:shadow-black/5 hover:border-primary/20 transition-all active:scale-95 group"
+              >
+                <img 
+                    src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
+                    alt="Google" 
+                    className="w-4 h-4 group-hover:scale-110 transition-transform" 
+                />
+                <span>Continue with Google</span>
+              </button>
+            </div>
           )}
         </div>
       </div>

@@ -14,7 +14,6 @@ import Planning from './pages/Planning';
 import Journal from './pages/Journal';
 import Cinema from './pages/Cinema';
 import Sound from './pages/Sound';
-import Login from './pages/Login';
 import { useUser } from './context/UserContext';
 import { motion } from 'motion/react';
 
@@ -47,10 +46,6 @@ function AppContent() {
         </motion.div>
       </div>
     );
-  }
-
-  if (!user) {
-    return <Login />;
   }
   
   const getTitle = (pathname: string) => {
