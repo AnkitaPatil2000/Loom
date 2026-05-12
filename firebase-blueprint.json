@@ -1,0 +1,114 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and statistics",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "rhythmStreak": { "type": "integer" },
+        "totalFocusHours": { "type": "number" },
+        "nurtureLevel": { "type": "integer" },
+        "growthEnergy": { "type": "number" },
+        "lastUpdated": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A task or intention for a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "in-progress", "completed"] },
+        "category": { "type": "string" },
+        "priority": { "type": "string", "enum": ["Low", "Medium", "High"] },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "status", "createdAt"]
+    },
+    "Thought": {
+      "title": "Thought",
+      "description": "A note or captured thought",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "summary": { "type": "string" },
+        "tags": { "type": "array" },
+        "category": { "type": "string" },
+        "wordCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "isPinned": { "type": "boolean" }
+      },
+      "required": ["userId", "title", "createdAt"]
+    },
+    "FocusSession": {
+      "title": "Focus Session",
+      "description": "A deep work or focus session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "initiative": { "type": "string" },
+        "category": { "type": "string" },
+        "durationSeconds": { "type": "integer" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "quality": { "type": "string", "enum": ["Low", "Moderate", "High", "Peak", "Focused", "Sustained"] },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "startTime", "durationSeconds", "createdAt"]
+    },
+    "GrowthArea": {
+      "title": "Growth Area",
+      "description": "A skill or area of growth",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "level": { "type": "integer" },
+        "growthProgress": { "type": "integer" },
+        "category": { "type": "string", "enum": ["Technical", "Creative", "Operational", "Strategic", "Human", "Wellness"] },
+        "stage": { "type": "string", "enum": ["Seedling", "Sprouting", "Rooted", "Budding", "Full Bloom"] },
+        "lastTended": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "level", "growthProgress", "category", "stage", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": "User",
+      "description": "Collection of user profiles and overall stats"
+    },
+    "tasks": {
+      "schema": "Task",
+      "description": "Collection of user tasks and intentions"
+    },
+    "thoughts": {
+      "schema": "Thought",
+      "description": "Collection of user notes and thoughts"
+    },
+    "focus_sessions": {
+      "schema": "FocusSession",
+      "description": "Collection of historical focus sessions"
+    },
+    "growth_areas": {
+      "schema": "GrowthArea",
+      "description": "Collection of tracking skills and growth metrics"
+    }
+  }
+}

@@ -1,5 +1,20 @@
-import { Inbox, Search, Plus, Filter, Tag, Hash, FileText, ChevronRight, Bookmark, Archive, MoreVertical, BookOpen, Coffee, Feather } from 'lucide-react';
-import { motion } from 'motion/react';
+import { useState, useEffect } from 'react';
+import { Inbox, Search, Plus, Filter, Tag, FileText, ChevronRight, Bookmark, Archive, MoreVertical, BookOpen, Coffee, Feather, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { useUser } from '../context/UserContext';
+import { subscribeToCollection, createThought, updateThought } from '../services/firebaseService';
+
+interface Thought {
+  id: string;
+  title: string;
+  summary: string;
+  content: string;
+  tags: string[];
+  category: string;
+  wordCount: number;
+  date?: string; // For display compatibility
+  createdAt?: any;
+}
 
 const collections = [
   { name: 'All Thoughts', count: 1254, icon: Inbox },
@@ -9,15 +24,53 @@ const collections = [
   { name: 'Personal Log', count: 967, icon: FileText },
 ];
 
-const thoughts = [
-  { id: '1', title: 'The Ethics of Automated Systems', date: 'June 24, 2024', tags: ['Philosophy', 'AI'], summary: 'Investigating the intersection of moral frameworks and machine learning decision trees. How do we encode empathy into logic?', words: 1250 },
-  { id: '2', title: 'Personal HQ V2 Architecture', date: 'June 23, 2024', tags: ['Engineering', 'Design'], summary: 'Refining the archival OS concept. Shifting focus from raw data to structural meaning. The goal is a softer interface for harder thoughts.', words: 840 },
-  { id: '3', title: 'Reading Notes: The Glass Bead Game', date: 'June 21, 2024', tags: ['Literature', 'Review'], summary: 'Synthesizing Hesse\'s concept of the pedagogical province with modern digital archiving. Does the game ever truly end?', words: 3200 },
-  { id: '4', title: 'Weekly Archive Synthesis', date: 'June 19, 2024', tags: ['System', 'Log'], summary: 'Performance review of the current week. Focus was lower than expected on Tuesday. Recalibrating the rhythm for the coming days.', words: 450 },
-  { id: '5', title: 'Fluid Component Patterns', date: 'June 18, 2024', tags: ['Engineering', 'React'], summary: 'Exploring decoupled state management in complex dashboard interfaces. The balance between reactivity and stability is a delicate one.', words: 1120 },
-];
-
 export default function Library() {
+  const { user } = useUser();
+  const [thoughts, setThoughts] = useState<Thought[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editingThought, setEditingThought] = useState<Partial<Thought>>({});
+
+  useEffect(() => {
+    if (user) {
+      const unsubscribe = subscribeToCollection('thoughts', (data) => {
+        setThoughts(data as Thought[]);
+      });
+      return () => unsubscribe();
+    } else {
+      setThoughts([]);
+    }
+  }, [user]);
+
+  const filteredThoughts = thoughts.filter(t => 
+    t.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    t.summary?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleSaveThought = async () => {
+    if (!editingThought.title) return;
+
+    if (editingThought.id) {
+      await updateThought(editingThought.id, editingThought);
+    } else {
+      await createThought({
+        ...editingThought,
+        summary: editingThought.content?.slice(0, 150) + '...',
+        wordCount: editingThought.content?.split(/\s+/).length || 0,
+        tags: ['Draft'],
+        category: 'Personal Log'
+      });
+    }
+
+    setIsEditorOpen(false);
+    setEditingThought({});
+  };
+
+  const openEditor = (thought?: Thought) => {
+    setEditingThought(thought || { title: '', content: '' });
+    setIsEditorOpen(true);
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -31,6 +84,8 @@ export default function Library() {
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-primary opacity-30 group-focus-within:opacity-100 transition-opacity" size={18} />
             <input 
               type="text" 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search library..." 
               className="w-full bg-white rounded-xl py-5 pl-16 pr-6 text-sm font-sans font-medium placeholder:italic border border-outline/5 focus:border-primary/20 outline-none transition-all shadow-sm"
             />
@@ -68,27 +123,36 @@ export default function Library() {
       </aside>
 
       {/* Main Content: Notes List */}
-      <div className="flex-1 bg-white overflow-y-auto custom-scrollbar">
+      <div className="flex-1 bg-white overflow-y-auto custom-scrollbar relative">
         <div className="px-16 py-12 border-b border-outline/5 sticky top-0 z-10 flex justify-between items-end bg-white/95 backdrop-blur-xl shadow-sm">
             <div className="space-y-2">
                 <h3 className="font-display text-5xl font-bold tracking-tight italic">The Library.</h3>
                 <p className="font-display text-sm italic text-on-surface-variant opacity-60">The weight of words / Synthesizing your story.</p>
             </div>
             <div className="flex gap-4">
-                <button className="flex items-center gap-4 px-10 py-4 bg-primary text-on-primary rounded-xl font-sans font-black text-[10px] uppercase tracking-widest hover:shadow-xl hover:shadow-primary/20 transition-all active:scale-95">
+                <button 
+                  onClick={() => openEditor()}
+                  className="flex items-center gap-4 px-10 py-4 bg-primary text-on-primary rounded-xl font-sans font-black text-[10px] uppercase tracking-widest hover:shadow-xl hover:shadow-primary/20 transition-all active:scale-95"
+                >
                     <Plus size={18} /> New Entry
                 </button>
             </div>
         </div>
 
         <div className="divide-y divide-outline/5">
-          {thoughts.map((note) => (
-            <div key={note.id} className="p-16 hover:bg-primary/[0.01] transition-all cursor-pointer group relative">
+          {filteredThoughts.map((note) => (
+            <div 
+              key={note.id} 
+              onClick={() => openEditor(note)}
+              className="p-16 hover:bg-primary/[0.01] transition-all cursor-pointer group relative"
+            >
               <div className="flex justify-between items-start mb-6">
                 <div className="flex items-center gap-6">
-                  <span className="font-sans text-[10px] text-primary font-bold tracking-[0.3em] opacity-40 group-hover:opacity-100 transition-opacity uppercase">Volume #{note.id}</span>
+                  <span className="font-sans text-[10px] text-primary font-bold tracking-[0.3em] opacity-40 group-hover:opacity-100 transition-opacity uppercase">Volume #{note.id.slice(-4).toUpperCase()}</span>
                   <div className="w-[1px] h-3 bg-outline/20"></div>
-                  <span className="font-sans text-[10px] text-on-surface-variant font-bold tracking-widest opacity-40 uppercase italic">{note.date}</span>
+                  <span className="font-sans text-[10px] text-on-surface-variant font-bold tracking-widest opacity-40 uppercase italic">
+                    {note.createdAt?.toDate().toLocaleDateString() || 'Today'}
+                  </span>
                 </div>
                 <div className="flex gap-6 opacity-0 group-hover:opacity-40 transition-all group-hover:translate-x-0 translate-x-4">
                     <button className="hover:text-primary transition-colors"><Bookmark size={20} /></button>
@@ -104,7 +168,7 @@ export default function Library() {
                     "{note.summary}"
                   </p>
                   <div className="flex gap-3 pt-2">
-                    {note.tags.map(tag => (
+                    {note.tags?.map(tag => (
                       <span key={tag} className="font-sans text-[10px] font-bold bg-surface-dim border border-outline/10 px-4 py-2 rounded-lg uppercase flex items-center gap-3 tracking-widest group-hover:border-primary/30 group-hover:bg-primary/5 transition-all">
                         <Tag size={12} className="opacity-40" /> {tag}
                       </span>
@@ -112,7 +176,7 @@ export default function Library() {
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-6 shrink-0">
-                    <span className="font-mono text-[10px] font-bold text-primary opacity-40">{note.words} WORDS</span>
+                    <span className="font-mono text-[10px] font-bold text-primary opacity-40">{note.wordCount || 0} WORDS</span>
                     <div className="w-16 h-16 rounded-full border border-outline/20 flex items-center justify-center text-on-surface-variant group-hover:bg-primary group-hover:text-on-primary group-hover:border-primary transition-all duration-500 shadow-sm group-hover:scale-110">
                         <ChevronRight size={28} strokeWidth={1.5} />
                     </div>
@@ -120,11 +184,70 @@ export default function Library() {
               </div>
             </div>
           ))}
+          
+          {filteredThoughts.length === 0 && (
+            <div className="p-32 text-center space-y-4 opacity-40">
+              <FileText size={64} className="mx-auto text-primary opacity-20" />
+              <p className="font-display text-2xl italic">The archives are silent.</p>
+              <button 
+                onClick={() => openEditor()}
+                className="text-primary font-sans text-xs font-bold uppercase tracking-widest border-b border-primary/20 pb-1"
+              >
+                Capture your first thought
+              </button>
+            </div>
+          )}
         </div>
         
         <div className="p-24 text-center bg-surface-dim border-t border-outline/5 mt-12">
             <button className="font-sans text-[10px] font-black uppercase tracking-[0.4em] text-on-surface-variant/40 hover:text-primary transition-all px-12 py-4 border border-outline/10 rounded-full hover:bg-white hover:shadow-sm">Load earlier volumes</button>
         </div>
+
+        {/* Floating Editor Overlay */}
+        <AnimatePresence>
+          {isEditorOpen && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-white z-50 flex flex-col"
+            >
+              <div className="px-16 py-12 border-b border-outline/5 flex justify-between items-center bg-white/95 backdrop-blur-xl sticky top-0">
+                 <button 
+                  onClick={() => setIsEditorOpen(false)}
+                  className="w-12 h-12 rounded-full border border-outline/10 flex items-center justify-center hover:bg-surface-dim transition-colors"
+                 >
+                    <X size={20} />
+                 </button>
+                 <div className="flex gap-4">
+                    <button 
+                      onClick={handleSaveThought}
+                      className="bg-primary text-on-primary px-10 py-4 rounded-xl font-sans font-black text-[10px] uppercase tracking-widest hover:shadow-xl hover:shadow-primary/20 transition-all active:scale-95"
+                    >
+                      Archive Thought
+                    </button>
+                 </div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto px-16 py-24 max-w-4xl mx-auto w-full space-y-12">
+                <input 
+                  type="text"
+                  autoFocus
+                  value={editingThought.title || ''}
+                  onChange={(e) => setEditingThought(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="The Title of Your Thought..."
+                  className="w-full bg-transparent border-none font-display text-6xl font-bold tracking-tight italic outline-none placeholder:text-outline/20"
+                />
+                <textarea 
+                  value={editingThought.content || ''}
+                  onChange={(e) => setEditingThought(prev => ({ ...prev, content: e.target.value }))}
+                  placeholder="Begin your exploration here..."
+                  className="w-full flex-1 bg-transparent border-none font-display text-2xl leading-relaxed italic outline-none placeholder:text-outline/20 min-h-[50vh] resize-none"
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );

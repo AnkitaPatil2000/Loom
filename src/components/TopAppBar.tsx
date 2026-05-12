@@ -1,10 +1,13 @@
-import { Search, Timer, Bell, Command } from 'lucide-react';
+import { Search, Timer, Bell, Command, LogIn } from 'lucide-react';
+import { useUser } from '../context/UserContext';
 
 interface TopAppBarProps {
   title: string;
 }
 
 export default function TopAppBar({ title }: TopAppBarProps) {
+  const { user, signIn, signOut } = useUser();
+
   return (
     <header className="fixed top-0 right-0 w-[calc(100%-var(--spacing-sidebar))] h-20 bg-background/80 border-b border-outline flex justify-between items-center px-16 z-40 backdrop-blur-xl">
       <h2 className="font-display text-4xl font-bold tracking-tight italic text-primary lowercase">{title}.</h2>
@@ -29,6 +32,27 @@ export default function TopAppBar({ title }: TopAppBarProps) {
             <Command size={12} />
             <span>K</span>
           </div>
+          
+          {user ? (
+            <button 
+              onClick={() => signOut()}
+              className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden border border-outline hover:ring-2 hover:ring-primary/20 transition-all"
+            >
+              {user.photoURL ? (
+                <img src={user.photoURL} alt={user.displayName || ''} className="w-full h-full object-cover" />
+              ) : (
+                <span className="font-display text-xs font-bold text-primary">{user.displayName?.[0] || user.email?.[0]}</span>
+              )}
+            </button>
+          ) : (
+            <button 
+              onClick={() => signIn()}
+              className="flex items-center gap-3 bg-primary text-on-primary px-6 py-2 rounded-full font-sans text-[10px] font-bold tracking-[0.1em] uppercase hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-95"
+            >
+              <LogIn size={14} />
+              <span>Connect</span>
+            </button>
+          )}
         </div>
       </div>
     </header>

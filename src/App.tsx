@@ -11,6 +11,9 @@ import FocusLedger from './pages/FocusLedger';
 import SkillsTracker from './pages/SkillsTracker';
 import NotesVault from './pages/NotesVault';
 import Planning from './pages/Planning';
+import Journal from './pages/Journal';
+import Cinema from './pages/Cinema';
+import Sound from './pages/Sound';
 
 // Lazy load or import other pages once created
 // For now, let's use placeholders for other pages to avoid compilation errors
@@ -54,9 +57,9 @@ function AppContent() {
             <Route path="/skills" element={<SkillsTracker />} />
             <Route path="/planning" element={<Planning />} />
             <Route path="/notes" element={<NotesVault />} />
-            <Route path="/reflection" element={<Placeholder title="Reflection Journal" />} />
-            <Route path="/cinema" element={<Placeholder title="Cinema" />} />
-            <Route path="/sound" element={<Placeholder title="Sound" />} />
+            <Route path="/reflection" element={<Journal />} />
+            <Route path="/cinema" element={<Cinema />} />
+            <Route path="/sound" element={<Sound />} />
           </Routes>
         </main>
         

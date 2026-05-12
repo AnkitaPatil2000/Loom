@@ -1,6 +1,18 @@
-import { Timer, ArrowRight, Play, Pause, Square, History, Filter, Download, Wind, Coffee, Zap } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Timer, Play, Pause, Square, History, Filter, Download, Wind, Coffee, Zap } from 'lucide-react';
 import { motion } from 'motion/react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { useUser } from '../context/UserContext';
+import { subscribeToCollection, logFocusSession } from '../services/firebaseService';
+
+interface Session {
+  id: string;
+  initiative: string;
+  category: string;
+  durationSeconds: number;
+  startTime: any;
+  quality: string;
+}
 
 const focusData = [
   { day: 'Mon', hours: 5.2 },
@@ -12,14 +24,81 @@ const focusData = [
   { day: 'Sun', hours: 2.4 },
 ];
 
-const sessions = [
-  { id: '1', initiative: 'System Architecture', category: 'Creative', duration: '2h 45m', time: '09:00', quality: 'High' },
-  { id: '2', initiative: 'Documentation', category: 'Reflection', duration: '1h 15m', time: '13:30', quality: 'Focused' },
-  { id: '3', initiative: 'Component Refactor', category: 'Deep Work', duration: '3h 20m', time: '15:15', quality: 'Sustained' },
-  { id: '4', initiative: 'Strategic Planning', category: 'Thinking', duration: '2h 00m', time: '08:30', quality: 'Peak' },
-];
-
 export default function Flow() {
+  const { user } = useUser();
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [isActive, setIsActive] = useState(false);
+  const [time, setTime] = useState(0);
+  const [initiative, setInitiative] = useState('');
+  const [category, setCategory] = useState('Deep Work');
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const startTimeRef = useRef<Date | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      const unsubscribe = subscribeToCollection('focus_sessions', (data) => {
+        setSessions(data as Session[]);
+      });
+      return () => unsubscribe();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (isActive) {
+        if (!startTimeRef.current) startTimeRef.current = new Date();
+        timerRef.current = setInterval(() => {
+            setTime(prev => prev + 1);
+        }, 1000);
+    } else {
+        if (timerRef.current) clearInterval(timerRef.current);
+    }
+    return () => {
+        if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isActive]);
+
+  const handleStartPause = () => {
+    setIsActive(!isActive);
+  };
+
+  const handleStop = async () => {
+    if (time < 60) {
+        if (!confirm('Session is very short. Record anyway?')) {
+            setIsActive(false);
+            setTime(0);
+            startTimeRef.current = null;
+            return;
+        }
+    }
+
+    await logFocusSession({
+      initiative: initiative || 'Unnamed Flow',
+      category: category,
+      durationSeconds: time,
+      startTime: startTimeRef.current || new Date(),
+      quality: time > 3600 ? 'Sustained' : 'Focused'
+    });
+
+    setIsActive(false);
+    setTime(0);
+    setInitiative('');
+    startTimeRef.current = null;
+  };
+
+  const formatTime = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hrs > 0 ? hrs.toString().padStart(2, '0') + ':' : ''}${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatDuration = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    if (hrs > 0) return `${hrs}h ${mins}m`;
+    return `${mins}m`;
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -34,38 +113,62 @@ export default function Flow() {
               <p className="font-display text-xl text-on-surface-variant italic opacity-60">Today's focus is shaping into something meaningful.</p>
            </div>
            <div className="flex items-center gap-2 px-6 py-2 bg-primary/10 text-primary rounded-full font-sans text-xs font-bold uppercase tracking-widest">
-              <Zap size={14} className="animate-pulse" /> Peak Focus
+              <Zap size={14} className={isActive ? 'animate-pulse' : ''} /> {isActive ? 'In Deep Flow' : 'At Rest'}
            </div>
         </div>
 
         <div className="grid grid-cols-12 gap-10">
-          <div className="col-span-12 lg:col-span-5 bg-white rounded-[2rem] p-12 flex flex-col justify-center items-center relative group border border-outline/10 shadow-sm transition-all hover:shadow-xl hover:shadow-primary/5 h-[460px]">
+          <div className="col-span-12 lg:col-span-5 bg-white rounded-[2rem] p-12 flex flex-col justify-center items-center relative group border border-outline/10 shadow-sm transition-all hover:shadow-xl hover:shadow-primary/5 h-[480px]">
             <div className="absolute top-12 left-12 opacity-10 group-hover:rotate-45 transition-transform duration-1000">
                <Timer size={48} strokeWidth={1} />
             </div>
             
             <div className="text-center space-y-4 mb-12">
-               <span className="font-display text-9xl font-bold tracking-tighter text-on-background">02:45</span>
+               <span className="font-display text-9xl font-bold tracking-tighter text-on-background tabular-nums">
+                 {formatTime(time)}
+               </span>
                <p className="font-sans text-sm font-semibold text-on-surface-variant opacity-60 tracking-widest uppercase">Minutes of uninterrupted thought</p>
             </div>
 
             <div className="flex gap-6 relative z-10">
-              <button className="flex items-center justify-center w-20 h-20 rounded-full bg-surface-dim text-on-surface hover:bg-outline/20 transition-all active:scale-95">
-                <Pause size={24} />
+              <button 
+                onClick={handleStartPause}
+                className="flex items-center justify-center w-20 h-20 rounded-full bg-surface-dim text-on-surface hover:bg-outline/20 transition-all active:scale-95"
+              >
+                {isActive ? <Pause size={24} /> : <Play size={24} fill="currentColor" />}
               </button>
-              <button className="flex items-center justify-center w-20 h-20 rounded-full bg-primary text-on-primary hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95">
-                <Square size={24} fill="currentColor" />
-              </button>
+              {(isActive || time > 0) && (
+                <button 
+                    onClick={handleStop}
+                    className="flex items-center justify-center w-20 h-20 rounded-full bg-primary text-on-primary hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95"
+                >
+                    <Square size={24} fill="currentColor" />
+                </button>
+              )}
             </div>
 
-            <div className="mt-12 text-center max-w-xs space-y-2">
-               <p className="font-display text-lg italic text-on-surface-variant leading-relaxed">
-                  "Working on the layout's emotional resonance."
-               </p>
+            <div className="mt-12 text-center w-full max-w-xs space-y-4">
+               <input 
+                 value={initiative}
+                 onChange={(e) => setInitiative(e.target.value)}
+                 className="w-full bg-transparent border-none font-display text-lg italic text-on-surface-variant text-center outline-none placeholder:opacity-40"
+                 placeholder="What are you tending to?"
+               />
+               <select 
+                 value={category}
+                 onChange={(e) => setCategory(e.target.value)}
+                 className="bg-surface-dim border border-outline/10 rounded-full px-4 py-1 text-[10px] font-bold uppercase tracking-widest text-primary outline-none"
+               >
+                 <option>Deep Work</option>
+                 <option>Creative</option>
+                 <option>Reflection</option>
+                 <option>Thinking</option>
+                 <option>Execution</option>
+               </select>
             </div>
           </div>
 
-          <div className="col-span-12 lg:col-span-7 bg-surface-container-high rounded-[2rem] p-12 flex flex-col justify-between border border-outline/20 overflow-hidden h-[460px]">
+          <div className="col-span-12 lg:col-span-7 bg-surface-container-high rounded-[2rem] p-12 flex flex-col justify-between border border-outline/20 overflow-hidden h-[480px]">
             <div className="space-y-2">
                <span className="font-sans text-[10px] font-black text-primary tracking-[0.3em] uppercase opacity-60">Focus Distribution</span>
                <h5 className="font-display text-xl font-bold italic">The week's energy.</h5>
@@ -147,7 +250,9 @@ export default function Flow() {
               <tbody className="divide-y divide-outline/10">
                 {sessions.map((session) => (
                   <tr key={session.id} className="hover:bg-primary/[0.02] transition-colors group cursor-pointer">
-                    <td className="p-8 font-mono text-xs text-on-surface-variant opacity-40 group-hover:opacity-100 transition-opacity italic">{session.time}</td>
+                    <td className="p-8 font-mono text-xs text-on-surface-variant opacity-40 group-hover:opacity-100 transition-opacity italic">
+                        {session.startTime?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Now'}
+                    </td>
                     <td className="p-8">
                       <div className="space-y-1">
                         <div className="font-display text-xl font-bold text-on-background group-hover:text-primary transition-colors italic">{session.initiative}</div>
@@ -155,7 +260,7 @@ export default function Flow() {
                       </div>
                     </td>
                     <td className="p-8 text-center">
-                       <div className="font-display text-xl font-bold text-primary">{session.duration}</div>
+                       <div className="font-display text-xl font-bold text-primary">{formatDuration(session.durationSeconds)}</div>
                     </td>
                     <td className="p-8 text-right">
                        <span className={`font-display text-lg font-bold italic ${session.quality === 'Peak' ? 'text-secondary' : 'text-primary'}`}>
@@ -167,6 +272,12 @@ export default function Flow() {
               </tbody>
             </table>
           </div>
+          {sessions.length === 0 && (
+            <div className="p-24 text-center space-y-4 opacity-40">
+                <Wind size={48} className="mx-auto text-primary opacity-20" />
+                <p className="font-display text-xl italic">The silence of focus. No sessions recorded yet.</p>
+            </div>
+          )}
           <button className="w-full p-8 font-sans text-[10px] uppercase font-bold tracking-[0.3em] text-on-surface-variant/40 hover:text-primary transition-colors bg-surface-dim">
             View more of your story
           </button>

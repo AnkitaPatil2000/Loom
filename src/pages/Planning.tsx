@@ -1,13 +1,16 @@
-import { Calendar, CheckCircle2, Circle, Clock, MoreHorizontal, Plus, AlertCircle, ChevronLeft, ChevronRight, ListTodo, Wind, Star, Sun } from 'lucide-react';
-import { motion } from 'motion/react';
+import { useState, useEffect } from 'react';
+import { CheckCircle2, Circle, Clock, MoreHorizontal, Plus, AlertCircle, ChevronLeft, ChevronRight, ListTodo, Wind, Star, Sun, Trash2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { useUser } from '../context/UserContext';
+import { subscribeToCollection, createTask, updateTask, deleteTask } from '../services/firebaseService';
 
-const intentions = [
-  { id: 1, title: 'Clarify the vision for the summer project', status: 'completed', category: 'Creative', priority: 'High' },
-  { id: 2, title: 'Garden maintenance and new plantings', status: 'in-progress', category: 'Growth', priority: 'Medium' },
-  { id: 3, title: 'Draft the morning ritual guide', status: 'pending', category: 'Thinking', priority: 'High' },
-  { id: 4, title: 'Restructure the library archives', status: 'pending', category: 'Space', priority: 'Low' },
-  { id: 5, title: 'Personal Manifesto: Reflection session', status: 'pending', category: 'Reflection', priority: 'Medium' },
-];
+interface Task {
+  id: string;
+  title: string;
+  status: 'pending' | 'in-progress' | 'completed';
+  category: string;
+  priority: 'Low' | 'Medium' | 'High';
+}
 
 const seasonArc = [
   { title: 'Emotional Resonance', progress: 85 },
@@ -16,12 +19,66 @@ const seasonArc = [
 ];
 
 export default function Intentions() {
+  const { user, signIn } = useUser();
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskCategory, setNewTaskCategory] = useState('General');
+
+  useEffect(() => {
+    if (user) {
+      const unsubscribe = subscribeToCollection('tasks', (data) => {
+        setTasks(data as Task[]);
+      });
+      return () => unsubscribe();
+    } else {
+      setTasks([]);
+    }
+  }, [user]);
+
+  const handleAddTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTaskTitle.trim()) return;
+
+    await createTask({
+      title: newTaskTitle,
+      category: newTaskCategory,
+      status: 'pending',
+      priority: 'Medium'
+    });
+
+    setNewTaskTitle('');
+    setIsAdding(false);
+  };
+
+  const toggleTask = async (task: Task) => {
+    const nextStatus = task.status === 'completed' ? 'pending' : 'completed';
+    await updateTask(task.id, { status: nextStatus });
+  };
+
+  const removeTask = async (id: string) => {
+    await deleteTask(id);
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="p-16 max-w-7xl mx-auto space-y-24"
     >
+      {!user && (
+        <div className="bg-primary/5 rounded-[2rem] p-12 border border-primary/20 text-center space-y-6">
+          <h4 className="font-display text-3xl font-bold italic">Connect to save your intentions.</h4>
+          <p className="font-sans text-sm text-on-surface-variant opacity-60">Your path is unique. Sign in to persist your progress across the seasons.</p>
+          <button 
+            onClick={() => signIn()}
+            className="bg-primary text-on-primary px-12 py-4 rounded-2xl font-sans font-black text-xs uppercase tracking-widest hover:shadow-xl hover:shadow-primary/20 transition-all active:scale-95"
+          >
+            Start Your Journey
+          </button>
+        </div>
+      )}
+
       {/* Header section */}
       <div className="flex justify-between items-end mb-12">
         <div className="space-y-4">
@@ -34,7 +91,10 @@ export default function Intentions() {
                 <div className="px-8 flex items-center font-display text-sm font-bold italic text-on-surface-variant">Week 26</div>
                 <button className="p-4 hover:bg-primary/5 transition-colors border-l border-outline/10 text-primary"><ChevronRight size={18} /></button>
             </div>
-            <button className="bg-primary text-on-primary font-sans font-black text-[10px] uppercase px-12 py-4 rounded-2xl hover:shadow-xl hover:shadow-primary/20 transition-all flex items-center gap-4 tracking-[0.2em] active:scale-95">
+            <button 
+                onClick={() => setIsAdding(true)}
+                className="bg-primary text-on-primary font-sans font-black text-[10px] uppercase px-12 py-4 rounded-2xl hover:shadow-xl hover:shadow-primary/20 transition-all flex items-center gap-4 tracking-[0.2em] active:scale-95"
+            >
                 <Plus size={16} /> New Venture
             </button>
         </div>
@@ -50,17 +110,71 @@ export default function Intentions() {
                         <h4 className="font-display text-3xl font-bold italic">Daily Intentions.</h4>
                     </div>
                 </div>
+                
                 <div className="divide-y divide-outline/10 px-4">
-                    {intentions.map((item) => (
-                        <div key={item.id} className="p-10 hover:bg-primary/[0.02] transition-all flex items-center justify-between group cursor-pointer rounded-2xl m-2">
-                            <div className="flex items-center gap-8">
+                    <AnimatePresence mode="popLayout">
+                        {isAdding && (
+                            <motion.div 
+                                initial={{ opacity: 0, y: -20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className="p-10 bg-primary/[0.03] rounded-2xl m-2"
+                            >
+                                <form onSubmit={handleAddTask} className="space-y-6">
+                                    <input 
+                                        autoFocus
+                                        value={newTaskTitle}
+                                        onChange={(e) => setNewTaskTitle(e.target.value)}
+                                        placeholder="What is your next focus?"
+                                        className="w-full bg-transparent border-none font-display text-3xl font-bold italic outline-none placeholder:text-outline/40"
+                                    />
+                                    <div className="flex justify-between items-center">
+                                        <select 
+                                            value={newTaskCategory}
+                                            onChange={(e) => setNewTaskCategory(e.target.value)}
+                                            className="bg-white border border-outline/10 rounded-xl px-4 py-2 font-sans text-[10px] font-bold uppercase tracking-widest text-primary outline-none"
+                                        >
+                                            <option>General</option>
+                                            <option>Creative</option>
+                                            <option>Growth</option>
+                                            <option>Architecture</option>
+                                            <option>Thinking</option>
+                                        </select>
+                                        <div className="flex gap-4">
+                                            <button 
+                                                type="button"
+                                                onClick={() => setIsAdding(false)}
+                                                className="px-6 py-2 rounded-xl font-sans text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-40 hover:opacity-100 transition-opacity"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button 
+                                                type="submit"
+                                                className="bg-primary text-on-primary px-8 py-2 rounded-xl font-sans text-[10px] font-bold uppercase tracking-widest hover:shadow-lg transition-all"
+                                            >
+                                                Commit
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {tasks.map((item) => (
+                        <motion.div 
+                            layout
+                            key={item.id} 
+                            className="p-10 hover:bg-primary/[0.01] transition-all flex items-center justify-between group cursor-pointer rounded-2xl m-2"
+                        >
+                            <div className="flex items-center gap-8" onClick={() => toggleTask(item)}>
                                 {item.status === 'completed' ? (
-                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                    <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-on-primary shadow-lg shadow-primary/20">
                                         <CheckCircle2 size={24} />
                                     </div>
                                 ) : (
-                                    <div className="w-10 h-10 rounded-full bg-surface-dim border-2 border-outline/20 flex items-center justify-center group-hover:border-primary/40 transition-colors">
-                                        <Circle size={24} className="text-outline/20 group-hover:text-primary/40 transition-colors" />
+                                    <div className="w-10 h-10 rounded-full bg-surface-dim border-2 border-outline/20 flex items-center justify-center group-hover:border-primary transition-colors">
+                                        <Circle size={24} className="text-outline/20 group-hover:text-primary transition-colors" />
                                     </div>
                                 )}
                                 <div className="space-y-1">
@@ -76,15 +190,29 @@ export default function Intentions() {
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-10 opacity-0 group-hover:opacity-40 transition-all translate-x-4 group-hover:translate-x-0">
-                                <Clock size={20} />
-                                <AlertCircle size={20} />
-                                <MoreHorizontal size={20} />
+                            <div className="flex items-center gap-8 opacity-0 group-hover:opacity-40 transition-all translate-x-4 group-hover:translate-x-0 text-on-surface-variant">
+                                <button onClick={() => removeTask(item.id)} className="hover:text-error transition-colors">
+                                    <Trash2 size={20} />
+                                </button>
+                                <button className="hover:text-primary transition-colors">
+                                    <MoreHorizontal size={20} />
+                                </button>
                             </div>
-                        </div>
+                        </motion.div>
                     ))}
+
+                    {tasks.length === 0 && !isAdding && (
+                        <div className="p-24 text-center space-y-4">
+                            <Wind size={48} className="mx-auto text-primary opacity-20" />
+                            <p className="font-display text-xl italic opacity-40 italic">Nothing on the radar yet. A clean slate for a fresh start.</p>
+                        </div>
+                    )}
                 </div>
-                <button className="w-full p-10 bg-surface-container font-sans text-xs font-black uppercase text-on-surface-variant/40 hover:text-primary transition-all tracking-[0.3em]">
+                
+                <button 
+                    onClick={() => setIsAdding(true)}
+                    className="w-full p-10 bg-surface-container font-sans text-xs font-black uppercase text-on-surface-variant/40 hover:text-primary transition-all tracking-[0.3em]"
+                >
                    Begin a new thought.
                 </button>
             </section>
@@ -94,9 +222,9 @@ export default function Intentions() {
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
                     <div key={day+i} className="bg-surface-container-low rounded-3xl p-8 min-h-[220px] relative transition-all group hover:bg-white border border-outline/10 hover:shadow-xl hover:shadow-primary/5 cursor-pointer">
                         <span className="font-sans text-xs font-black text-primary mb-6 block opacity-40 group-hover:opacity-100">{day}</span>
-                        {i === 2 && (
+                        {i === 2 && tasks.some(t => t.status !== 'completed') && (
                             <div className="bg-primary/5 rounded-xl p-4 border border-primary/10 text-[11px] leading-relaxed italic text-on-surface-variant font-bold shadow-sm">
-                                Nurturing the vision for summer project
+                                {tasks.find(t => t.status !== 'completed')?.title}
                             </div>
                         )}
                         <div className="absolute bottom-4 right-4 text-on-surface font-display text-4xl font-black opacity-[0.03] group-hover:opacity-[0.08] transition-opacity pointer-events-none italic">

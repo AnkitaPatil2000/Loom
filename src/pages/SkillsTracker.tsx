@@ -1,24 +1,19 @@
-import { Calculator, Zap, Star, TrendingUp, ChevronRight, Info, Search, Sprout, Flower2, TreeDeciduous, Leaf, Sun } from 'lucide-react';
-import { motion } from 'motion/react';
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
+import { useState, useEffect } from 'react';
+import { Zap, Star, TrendingUp, ChevronRight, Search, Sprout, Flower2, TreeDeciduous, Leaf, Sun, Plus } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, Radar as RadarComponent } from 'recharts';
+import { useUser } from '../context/UserContext';
+import { subscribeToCollection, syncGrowthArea } from '../services/firebaseService';
 
-const growthStats = [
-  { subject: 'Technical', A: 120, fullMark: 150 },
-  { subject: 'Creative', A: 98, fullMark: 150 },
-  { subject: 'Operational', A: 86, fullMark: 150 },
-  { subject: 'Strategic', A: 130, fullMark: 150 },
-  { subject: 'Human', A: 70, fullMark: 150 },
-  { subject: 'Wellness', A: 65, fullMark: 150 },
-];
-
-const gardenAreas = [
-  { id: 1, name: 'System Architecture', level: 12, growth: 85, category: 'Technical', stage: 'Full Bloom', lastTended: '2 hours ago', icon: TreeDeciduous },
-  { id: 2, name: 'Typography & Layout', level: 9, growth: 42, category: 'Creative', stage: 'Budding', lastTended: 'Yesterday', icon: Flower2 },
-  { id: 3, name: 'Project Management', level: 7, growth: 91, category: 'Operational', stage: 'Sprouting', lastTended: '3 days ago', icon: Sprout },
-  { id: 4, name: 'Data Analysis', level: 11, growth: 25, category: 'Technical', stage: 'Rooted', lastTended: '1 week ago', icon: Leaf },
-  { id: 5, name: 'Public Speaking', level: 4, growth: 68, category: 'Human', stage: 'Seedling', lastTended: 'Never', icon: Sprout },
-  { id: 6, name: 'Interface Design', level: 14, growth: 95, category: 'Creative', stage: 'Full Bloom', lastTended: 'Yesterday', icon: Flower2 },
-];
+interface GrowthArea {
+  id: string;
+  name: string;
+  level: number;
+  growthProgress: number;
+  category: string;
+  stage: string;
+  lastTended: any;
+}
 
 const stageStyles = {
   'Full Bloom': 'text-primary border-primary bg-primary/5',
@@ -28,7 +23,83 @@ const stageStyles = {
   'Seedling': 'text-on-surface-variant border-outline bg-surface-dim opacity-50',
 };
 
+const categoryIcons: Record<string, any> = {
+  'Technical': TreeDeciduous,
+  'Creative': Flower2,
+  'Operational': Sprout,
+  'Strategic': TreeDeciduous,
+  'Human': Leaf,
+  'Wellness': Sun
+};
+
 export default function Growth() {
+  const { user, profile } = useUser();
+  const [gardenAreas, setGardenAreas] = useState<GrowthArea[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+  const [newAreaName, setNewAreaName] = useState('');
+  const [newAreaCategory, setNewAreaCategory] = useState('Technical');
+
+  useEffect(() => {
+    if (user) {
+      const unsubscribe = subscribeToCollection('growth_areas', (data) => {
+        setGardenAreas(data as GrowthArea[]);
+      });
+      return () => unsubscribe();
+    }
+  }, [user]);
+
+  const radarData = [
+    { subject: 'Technical', A: gardenAreas.filter(a => a.category === 'Technical').reduce((acc, a) => acc + a.level, 0) * 10, fullMark: 150 },
+    { subject: 'Creative', A: gardenAreas.filter(a => a.category === 'Creative').reduce((acc, a) => acc + a.level, 0) * 10, fullMark: 150 },
+    { subject: 'Operational', A: gardenAreas.filter(a => a.category === 'Operational').reduce((acc, a) => acc + a.level, 0) * 10, fullMark: 150 },
+    { subject: 'Strategic', A: gardenAreas.filter(a => a.category === 'Strategic').reduce((acc, a) => acc + a.level, 0) * 10, fullMark: 150 },
+    { subject: 'Human', A: gardenAreas.filter(a => a.category === 'Human').reduce((acc, a) => acc + a.level, 0) * 10, fullMark: 150 },
+    { subject: 'Wellness', A: gardenAreas.filter(a => a.category === 'Wellness').reduce((acc, a) => acc + a.level, 0) * 10, fullMark: 150 },
+  ];
+
+  const handlePlant = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAreaName.trim()) return;
+
+    await syncGrowthArea({
+      name: newAreaName,
+      category: newAreaCategory,
+      level: 1,
+      growthProgress: 10,
+      stage: 'Seedling',
+      lastTended: new Date()
+    });
+
+    setNewAreaName('');
+    setIsAdding(false);
+  };
+
+  const tendToArea = async (area: GrowthArea) => {
+    let nextProgress = area.growthProgress + 15;
+    let nextLevel = area.level;
+    let nextStage = area.stage;
+
+    if (nextProgress >= 100) {
+        nextProgress = 0;
+        nextLevel += 1;
+        if (nextLevel > 10) nextStage = 'Full Bloom';
+        else if (nextLevel > 7) nextStage = 'Budding';
+        else if (nextLevel > 4) nextStage = 'Rooted';
+        else if (nextLevel > 2) nextStage = 'Sprouting';
+    }
+
+    await syncGrowthArea({
+        ...area,
+        growthProgress: nextProgress,
+        level: nextLevel,
+        stage: nextStage,
+        lastTended: new Date()
+    });
+  };
+
+  const filteredAreas = gardenAreas.filter(a => a.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -44,12 +115,12 @@ export default function Growth() {
         <div className="flex items-center gap-12 bg-surface-container-low rounded-[2rem] px-12 py-8 border border-outline/20">
           <div className="text-right">
             <span className="font-sans text-[10px] uppercase text-on-surface-variant tracking-widest font-bold opacity-40">Nurture Level</span>
-            <p className="font-display text-4xl font-bold italic text-primary">42.</p>
+            <p className="font-display text-4xl font-bold italic text-primary">{profile?.nurtureLevel || 42}.</p>
           </div>
           <div className="w-[1px] h-12 bg-outline/20"></div>
           <div className="text-right">
              <span className="font-sans text-[10px] uppercase text-on-surface-variant tracking-widest font-bold opacity-40">Growth Energy</span>
-             <p className="font-display text-4xl font-bold italic text-primary">124.5k</p>
+             <p className="font-display text-4xl font-bold italic text-primary">{(profile?.growthEnergy / 1000).toFixed(1) || '124.5'}k</p>
           </div>
         </div>
       </div>
@@ -68,10 +139,10 @@ export default function Growth() {
             
             <div className="flex-1 w-full min-h-[340px]">
               <ResponsiveContainer width="100%" height="100%">
-                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={growthStats}>
+                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
                   <PolarGrid stroke="rgba(111, 130, 106, 0.1)" />
                   <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10, fontFamily: 'Inter', fontWeight: 600, fill: '#6b6357', opacity: 0.5 }} />
-                  <Radar
+                  <RadarComponent
                     name="Growth"
                     dataKey="A"
                     stroke="#6F826A"
@@ -85,7 +156,7 @@ export default function Growth() {
           
           <div className="pt-8 border-t border-outline/20">
             <p className="font-display text-lg italic text-on-surface-variant leading-relaxed opacity-60">
-               Your <span className="text-primary font-bold">Technical</span> essence is flourishing beautifully. Perhaps some <span className="text-secondary font-bold">Human</span> connection would bring balance to your garden this week?
+               Your <span className="text-primary font-bold">garden</span> essence is flourishing beautifully. Tend to your intentions to watch them bloom.
             </p>
           </div>
         </div>
@@ -96,16 +167,59 @@ export default function Growth() {
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-primary opacity-30 group-focus-within:opacity-100 transition-opacity" size={18} />
             <input 
               type="text" 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search your garden..." 
               className="w-full bg-white rounded-2xl py-6 pl-16 pr-6 text-sm font-sans font-medium placeholder:italic border border-outline/10 focus:border-primary/30 outline-none transition-all shadow-sm focus:shadow-lg focus:shadow-primary/5"
             />
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {gardenAreas.map((area) => (
-              <div key={area.id} className="bg-white rounded-[2rem] border border-outline/10 p-10 hover:shadow-xl hover:shadow-primary/5 transition-all group cursor-pointer relative overflow-hidden">
+            <AnimatePresence mode="popLayout">
+                {isAdding && (
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        className="col-span-1 md:col-span-2 bg-primary/5 rounded-[2rem] border border-primary/20 p-10"
+                    >
+                        <form onSubmit={handlePlant} className="flex flex-col gap-6">
+                            <input 
+                                autoFocus
+                                value={newAreaName}
+                                onChange={(e) => setNewAreaName(e.target.value)}
+                                placeholder="What area shall we tend to?"
+                                className="bg-transparent border-none font-display text-4xl font-bold italic outline-none placeholder:opacity-30"
+                            />
+                            <div className="flex justify-between items-center">
+                                <select 
+                                    value={newAreaCategory}
+                                    onChange={(e) => setNewAreaCategory(e.target.value)}
+                                    className="bg-white border border-outline/10 rounded-xl px-4 py-2 font-sans text-[10px] font-bold uppercase"
+                                >
+                                    {Object.keys(categoryIcons).map(cat => <option key={cat}>{cat}</option>)}
+                                </select>
+                                <div className="flex gap-4">
+                                    <button type="button" onClick={() => setIsAdding(false)} className="px-6 py-2 font-sans text-[10px] uppercase font-bold opacity-40">Cancel</button>
+                                    <button type="submit" className="bg-primary text-on-primary px-10 py-3 rounded-xl font-sans text-[10px] uppercase font-bold tracking-widest shadow-lg shadow-primary/20">Plant Intention</button>
+                                </div>
+                            </div>
+                        </form>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {filteredAreas.map((area) => {
+              const Icon = categoryIcons[area.category] || Sprout;
+              return (
+              <motion.div 
+                layout
+                key={area.id} 
+                onClick={() => tendToArea(area)}
+                className="bg-white rounded-[2rem] border border-outline/10 p-10 hover:shadow-xl hover:shadow-primary/5 transition-all group cursor-pointer relative overflow-hidden"
+              >
                 <div className="absolute top-4 right-4 opacity-[0.03] group-hover:opacity-[0.07] transition-all pointer-events-none group-hover:scale-110 duration-700">
-                  <area.icon size={120} />
+                  <Icon size={120} />
                 </div>
                 
                 <div className="flex justify-between items-start mb-8">
@@ -119,28 +233,33 @@ export default function Growth() {
                 <div className="space-y-6">
                   <div className="h-1.5 w-full bg-surface-dim rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-primary transition-all duration-[2000ms]" 
-                      style={{ width: `${area.growth}%` }}
+                      className="h-full bg-primary transition-all duration-700" 
+                      style={{ width: `${area.growthProgress}%` }}
                     ></div>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className={`font-sans text-[10px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-full border ${(stageStyles as any)[area.stage]}`}>
                       {area.stage}
                     </span>
-                    <span className="font-sans text-[10px] italic text-on-surface-variant opacity-40">Tended {area.lastTended}</span>
+                    <span className="font-sans text-[10px] italic text-on-surface-variant opacity-40">
+                        {area.lastTended ? `Tended ${area.lastTended.toDate().toLocaleDateString()}` : 'Untended'}
+                    </span>
                   </div>
                 </div>
-              </div>
-            ))}
+              </motion.div>
+            )})}
           </div>
 
-          <button className="bg-surface-container rounded-2xl p-8 text-on-surface-variant font-sans text-xs font-bold uppercase tracking-[0.3em] border-2 border-dashed border-outline/20 hover:border-primary/40 hover:text-primary transition-all flex items-center justify-center gap-6 opacity-60 hover:opacity-100 group">
-            <PlusIcon size={18} className="group-hover:rotate-90 transition-transform duration-500" /> Plant New Intentions
+          <button 
+            onClick={() => setIsAdding(true)}
+            className="bg-surface-container rounded-2xl p-8 text-on-surface-variant font-sans text-xs font-bold uppercase tracking-[0.3em] border-2 border-dashed border-outline/20 hover:border-primary/40 hover:text-primary transition-all flex items-center justify-center gap-6 opacity-60 hover:opacity-100 group"
+          >
+            <Plus size={18} className="group-hover:rotate-90 transition-transform duration-500" /> Plant New Intentions
           </button>
         </div>
       </div>
 
-      {/* Chronicle of Growth */}
+      {/* Chronicle of Growth - making this dynamic would involve another collection for milestones */}
       <section className="bg-surface-container rounded-[3rem] p-16 relative overflow-hidden border border-outline/10">
         <div className="absolute -bottom-12 right-0 p-12 opacity-[0.03]">
             <TrendingUp size={300} />
@@ -175,23 +294,4 @@ export default function Growth() {
       </section>
     </motion.div>
   );
-}
-
-function PlusIcon({ size, className }: { size?: number, className?: string }) {
-    return (
-        <svg 
-            width={size || 24} 
-            height={size || 24} 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            stroke="currentColor" 
-            strokeWidth="3" 
-            strokeLinecap="round" 
-            strokeLinejoin="round" 
-            className={className}
-        >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-    )
 }

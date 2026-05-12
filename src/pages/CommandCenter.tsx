@@ -1,8 +1,48 @@
-import { Heart, Plus, ArrowUpRight, MessageSquare, BookOpen, Star, RefreshCw, Feather, Smile, Wind } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Heart, Plus, MessageSquare, BookOpen, Star, RefreshCw, Feather, Smile, Wind, Zap } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useUser } from '../context/UserContext';
+import { subscribeToCollection, createThought, logFocusSession } from '../services/firebaseService';
+import { useNavigate } from 'react-router-dom';
 
 export default function Home() {
+  const { user, profile } = useUser();
+  const navigate = useNavigate();
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' });
+  
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [thoughts, setThoughts] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [quickThought, setQuickThought] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      const unsubTasks = subscribeToCollection('tasks', (data) => setTasks(data.slice(0, 3)));
+      const unsubThoughts = subscribeToCollection('thoughts', (data) => setThoughts(data.slice(0, 3)));
+      const unsubSessions = subscribeToCollection('focus_sessions', (data) => setSessions(data.slice(0, 3)));
+      
+      return () => {
+        unsubTasks();
+        unsubThoughts();
+        unsubSessions();
+      }
+    }
+  }, [user]);
+
+  const handleQuickThought = async () => {
+    if (!quickThought.trim()) return;
+    await createThought({
+      title: quickThought.slice(0, 40) + (quickThought.length > 40 ? '...' : ''),
+      content: quickThought,
+      summary: quickThought.slice(0, 100) + '...',
+      tags: ['Whisper'],
+      category: 'Personal Log'
+    });
+    setQuickThought('');
+  };
+
+  const activeTask = tasks.find(t => t.status !== 'completed');
+  const totalFocus = sessions.reduce((acc, s) => acc + s.durationSeconds, 0);
 
   return (
     <motion.div 
@@ -33,8 +73,10 @@ export default function Home() {
           <div className="relative z-10 flex flex-col h-full justify-between min-h-[400px]">
              <div className="flex justify-between items-start">
                 <div className="space-y-2">
-                  <span className="font-sans text-[10px] font-bold text-primary tracking-[0.2em] uppercase">In Focus This Week</span>
-                  <h4 className="font-display text-4xl font-bold italic text-on-background">Clarifying the vision for summer project.</h4>
+                  <span className="font-sans text-[10px] font-bold text-primary tracking-[0.2em] uppercase">In Focus Today</span>
+                  <h4 className="font-display text-4xl font-bold italic text-on-background">
+                    {activeTask ? activeTask.title : "Waiting for your first intention."}
+                  </h4>
                 </div>
                 <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg shadow-black/5 hover:scale-110 transition-transform cursor-pointer">
                   <Star size={20} className="text-secondary" fill="currentColor" />
@@ -43,15 +85,23 @@ export default function Home() {
 
              <div className="my-16 space-y-8">
                 <div className="flex items-baseline gap-4">
-                  <span className="font-display text-9xl font-bold tracking-tighter text-on-background">04</span>
+                  <span className="font-display text-9xl font-bold tracking-tighter text-on-background tabular-nums">
+                    {Math.floor(totalFocus / 3600).toString().padStart(2, '0')}
+                  </span>
                   <span className="font-display text-4xl italic text-on-surface-variant">hours deep into exploration.</span>
                 </div>
                 <div className="flex gap-4">
-                  <button className="px-8 py-4 bg-primary text-on-primary rounded-2xl font-sans font-semibold text-sm hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-95">
+                  <button 
+                    onClick={() => navigate('/focus')}
+                    className="px-8 py-4 bg-primary text-on-primary rounded-2xl font-sans font-semibold text-sm hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-95"
+                  >
                     Start Focusing
                   </button>
-                  <button className="px-8 py-4 bg-white text-on-background border border-outline rounded-2xl font-sans font-semibold text-sm hover:bg-surface-dim transition-all">
-                    Add Note
+                  <button 
+                    onClick={() => navigate('/intentions')}
+                    className="px-8 py-4 bg-white text-on-background border border-outline rounded-2xl font-sans font-semibold text-sm hover:bg-surface-dim transition-all"
+                  >
+                    Set Intentions
                   </button>
                 </div>
              </div>
@@ -92,7 +142,7 @@ export default function Home() {
             <div className="mt-10 space-y-4">
                <div className="flex justify-between items-end">
                   <span className="font-sans text-xs font-medium text-on-surface-variant opacity-60">Successive days</span>
-                  <span className="font-display text-4xl font-bold italic text-primary">12 days.</span>
+                  <span className="font-display text-4xl font-bold italic text-primary">{profile?.rhythmStreak || 0} days.</span>
                </div>
                <div className="h-1 w-full bg-white rounded-full overflow-hidden">
                   <div className="h-full bg-primary/40 w-full animate-pulse"></div>
@@ -116,19 +166,19 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Growth Areas */}
+        {/* Growth Areas placeholder - making it real involves skills tracking which we'll handle next */}
         <div className="col-span-12 lg:col-span-5 bg-surface-container rounded-[2rem] p-12 border border-outline/20 space-y-10">
           <div className="flex justify-between items-center">
             <h5 className="font-display text-2xl font-bold italic">Areas of Growth.</h5>
-            <button className="text-primary p-2 hover:bg-primary/5 rounded-full transition-all">
+            <button onClick={() => navigate('/skills')} className="text-primary p-2 hover:bg-primary/5 rounded-full transition-all">
               <Plus size={20} />
             </button>
           </div>
           <div className="space-y-8">
             {[
-              { label: 'Creative Direction', progress: 82, color: 'bg-primary' },
-              { label: 'Quiet Reflection', progress: 45, color: 'bg-secondary' },
-              { label: 'Technical Craft', progress: 68, color: 'bg-primary' },
+              { label: 'Creative Direction', progress: Math.min(100, Math.floor(totalFocus / 360) + 40), color: 'bg-primary' },
+              { label: 'Quiet Reflection', progress: Math.min(100, thoughts.length * 10 + 20), color: 'bg-secondary' },
+              { label: 'Technical Craft', progress: Math.min(100, tasks.length * 5 + 30), color: 'bg-primary' },
             ].map((area, i) => (
               <div key={i} className="group cursor-pointer space-y-4">
                 <div className="flex justify-between items-end">
@@ -136,7 +186,7 @@ export default function Home() {
                   <span className="font-mono text-[10px] opacity-40">{area.progress}%</span>
                 </div>
                 <div className="h-1 w-full bg-white rounded-full overflow-hidden">
-                  <div className={`h-full ${area.color} transition-all duration-1000 delay-${i*200}`} style={{ width: `${area.progress}%` }}></div>
+                  <div className={`h-full ${area.color} transition-all duration-1000`} style={{ width: `${area.progress}%` }}></div>
                 </div>
               </div>
             ))}
@@ -153,6 +203,8 @@ export default function Home() {
           </div>
           
           <textarea 
+            value={quickThought}
+            onChange={(e) => setQuickThought(e.target.value)}
             className="w-full bg-transparent border-none focus:ring-0 font-sans p-0 resize-none h-40 placeholder:italic text-lg text-on-background focus:outline-none placeholder:opacity-30 leading-relaxed" 
             placeholder="A place for your thoughts, goals, and growth. Capture the essence of this moment..."
           ></textarea>
@@ -162,11 +214,14 @@ export default function Home() {
                <button className="p-3 text-on-surface-variant hover:text-primary hover:bg-primary/5 rounded-xl transition-all">
                   <Smile size={20} />
                </button>
-               <button className="p-3 text-on-surface-variant hover:text-primary hover:bg-primary/5 rounded-xl transition-all">
+               <button onClick={() => navigate('/library')} className="p-3 text-on-surface-variant hover:text-primary hover:bg-primary/5 rounded-xl transition-all">
                   <BookOpen size={20} />
                </button>
             </div>
-            <button className="bg-primary/10 text-primary font-sans font-bold text-xs uppercase px-12 py-4 rounded-xl hover:bg-primary hover:text-on-primary transition-all shadow-sm">
+            <button 
+              onClick={handleQuickThought}
+              className="bg-primary/10 text-primary font-sans font-bold text-xs uppercase px-12 py-4 rounded-xl hover:bg-primary hover:text-on-primary transition-all shadow-sm"
+            >
               Keep Thought
             </button>
           </div>
