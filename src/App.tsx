@@ -3,9 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import TopAppBar from './components/TopAppBar';
+import CommandPalette from './components/CommandPalette';
+import ReflectModal from './components/ReflectModal';
 import CommandCenter from './pages/CommandCenter';
 import FocusLedger from './pages/FocusLedger';
 import SkillsTracker from './pages/SkillsTracker';
@@ -35,6 +38,8 @@ function AppContent() {
   const location = useLocation();
   const { user, loading } = useUser();
   
+  const [isReflectOpen, setIsReflectOpen] = useState(false);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center paper-texture bg-surface">
@@ -65,7 +70,9 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex text-on-background paper-texture selection:bg-primary/20 selection:text-primary">
-      <Sidebar />
+      <CommandPalette />
+      <ReflectModal isOpen={isReflectOpen} onClose={() => setIsReflectOpen(false)} />
+      <Sidebar onReflect={() => setIsReflectOpen(true)} />
       <div className="flex-1 ml-[var(--spacing-sidebar)] flex flex-col min-h-screen">
         <TopAppBar title={getTitle(location.pathname)} />
         <main className="flex-1 mt-20 pb-20 overflow-x-hidden">

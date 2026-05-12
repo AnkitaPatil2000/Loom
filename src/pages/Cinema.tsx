@@ -67,7 +67,7 @@ export default function Cinema() {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
     try {
-      const data = await movieService.searchMovies(searchQuery);
+      const data = await movieService.searchMulti(searchQuery);
       if (data === null) {
         alert("TMDB API Key missing. Please add VITE_TMDB_API_KEY in the Secrets panel.");
         setSearchResults([]);
@@ -80,6 +80,9 @@ export default function Cinema() {
       setIsSearching(false);
     }
   };
+
+  const getLogTitle = (movie: any) => movie.title || movie.name;
+  const getLogDate = (movie: any) => movie.release_date || movie.first_air_date;
 
   const generateNewAtmosphere = async () => {
     setIsGenerating(true);
@@ -115,12 +118,37 @@ export default function Cinema() {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="max-w-7xl mx-auto px-8 py-12 space-y-32"
-      style={{
-        background: `radial-gradient(circle at 50% -20%, ${atmosphere.glow}, transparent 60%)`,
-        transition: 'background 2s ease-in-out'
-      }}
+      className="relative min-h-screen px-8 py-12 space-y-32 overflow-x-hidden"
     >
+      {/* Dynamic Background Layer */}
+      <div 
+        className="fixed inset-0 z-[-1] transition-all duration-[3000ms] ease-in-out"
+        style={{
+          background: `
+            radial-gradient(circle at 50% -20%, ${atmosphere.glow}, transparent 70%),
+            radial-gradient(circle at 0% 100%, ${atmosphere.accent}, transparent 50%),
+            radial-gradient(circle at 100% 100%, ${atmosphere.glow}, transparent 50%),
+            var(--surface)
+          `
+        }}
+      />
+
+      {/* Backdrop Image Overlay */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={selectedScene?.url || 'default'}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 0.15 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 2 }}
+          className="fixed inset-0 z-[-1] grayscale blur-3xl scale-110 pointer-events-none"
+          style={{
+            backgroundImage: `url(${selectedScene?.url || (logs[0]?.posterPath ? `https://image.tmdb.org/t/p/original${logs[0].posterPath}` : '')})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        />
+      </AnimatePresence>
       <style>
         {`
           @keyframes float {
@@ -164,7 +192,8 @@ export default function Cinema() {
         ))}
       </div>
 
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 relative z-10">
+      <div className="max-w-7xl mx-auto space-y-32">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 relative z-10">
         <div className="space-y-3">
            <span className="font-sans text-xs font-black text-primary tracking-[0.3em] uppercase opacity-40 block">Visual Resonator</span>
            <h1 className="font-display text-7xl md:text-8xl font-bold italic text-on-background tracking-tighter leading-[0.85]">Cinema.</h1>
@@ -239,8 +268,8 @@ export default function Cinema() {
                          <img src={`https://image.tmdb.org/t/p/w200${movie.poster_path}`} alt="" className="w-full h-full object-cover" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-display text-sm font-bold truncate group-hover:text-primary transition-colors">{movie.title}</p>
-                        <p className="font-sans text-[10px] opacity-40 uppercase tracking-widest">{movie.release_date?.split('-')[0]}</p>
+                        <p className="font-display text-sm font-bold truncate group-hover:text-primary transition-colors">{getLogTitle(movie)}</p>
+                        <p className="font-sans text-[10px] opacity-40 uppercase tracking-widest">{getLogDate(movie)?.split('-')[0]} • {movie.media_type === 'tv' ? 'Series' : 'Film'}</p>
                       </div>
                       <Plus size={16} className="text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
                     </button>
@@ -356,8 +385,8 @@ export default function Cinema() {
                 <div className="flex-1 p-12 space-y-8 overflow-y-auto">
                    <div className="flex justify-between items-start">
                      <div className="space-y-2">
-                       <h3 className="font-display text-4xl font-bold italic tracking-tight leading-none">{showLogModal.title}</h3>
-                       <p className="font-sans text-[10px] font-black uppercase tracking-widest opacity-40">{showLogModal.release_date?.split('-')[0]}</p>
+                       <h3 className="font-display text-4xl font-bold italic tracking-tight leading-none">{getLogTitle(showLogModal)}</h3>
+                       <p className="font-sans text-[10px] font-black uppercase tracking-widest opacity-40">{getLogDate(showLogModal)?.split('-')[0]} • {showLogModal.media_type === 'tv' ? 'Series' : 'Film'}</p>
                      </div>
                      <button onClick={() => setShowLogModal(null)} className="text-on-surface-variant/20 hover:text-on-surface-variant transition-colors"><Maximize2 className="rotate-45" /></button>
                    </div>
@@ -394,7 +423,7 @@ export default function Cinema() {
                         saveLog({
                           id: Date.now().toString(),
                           tmdbId: showLogModal.id,
-                          title: showLogModal.title,
+                          title: getLogTitle(showLogModal),
                           posterPath: showLogModal.poster_path,
                           rating,
                           note,
@@ -465,6 +494,7 @@ export default function Cinema() {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </motion.div>
   );
 }

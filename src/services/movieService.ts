@@ -32,8 +32,12 @@ export const movieService = {
     return this.fetchTMDB(`/search/movie?query=${encodeURIComponent(query)}`);
   },
 
-  async getMovieDetails(movieId: string) {
-    return this.fetchTMDB(`/movie/${movieId}`);
+  async searchMulti(query: string) {
+    return this.fetchTMDB(`/search/multi?query=${encodeURIComponent(query)}`);
+  },
+
+  async getMovieDetails(movieId: string, type: 'movie' | 'tv' = 'movie') {
+    return this.fetchTMDB(`/${type}/${movieId}`);
   },
 
   async getTrending() {

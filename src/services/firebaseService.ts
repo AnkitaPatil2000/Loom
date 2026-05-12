@@ -209,6 +209,41 @@ export const syncGrowthArea = async (area: any) => {
   }
 };
 
+// Search helper
+export const searchCollections = async (searchQuery: string) => {
+  if (!auth.currentUser || !searchQuery.trim()) return [];
+  
+  const results: any[] = [];
+  const collectionsToSearch = ['thoughts', 'tasks', 'growth_areas'];
+
+  try {
+    const promises = collectionsToSearch.map(async (colName) => {
+      const q = query(
+        collection(db, colName),
+        where('userId', '==', auth.currentUser?.uid),
+        orderBy('createdAt', 'desc')
+      );
+      const snapshot = await getDocs(q);
+      const qLower = searchQuery.toLowerCase();
+      
+      return snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data(), _collection: colName }))
+        .filter((item: any) => 
+          (item.title && item.title.toLowerCase().includes(qLower)) ||
+          (item.content && item.content.toLowerCase().includes(qLower)) ||
+          (item.name && item.name.toLowerCase().includes(qLower)) ||
+          (item.summary && item.summary.toLowerCase().includes(qLower))
+        );
+    });
+
+    const collectionsResults = await Promise.all(promises);
+    return collectionsResults.flat();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, 'multi-search');
+    return [];
+  }
+};
+
 // Reflections / Journal
 export const logReflection = async (reflection: any) => {
   if (!auth.currentUser) return;

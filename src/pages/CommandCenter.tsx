@@ -13,6 +13,7 @@ export default function Home() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [thoughts, setThoughts] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
+  const [gardenAreas, setGardenAreas] = useState<any[]>([]);
   const [quickThought, setQuickThought] = useState('');
 
   useEffect(() => {
@@ -20,11 +21,13 @@ export default function Home() {
       const unsubTasks = subscribeToCollection('tasks', (data) => setTasks(data.slice(0, 3)));
       const unsubThoughts = subscribeToCollection('thoughts', (data) => setThoughts(data.slice(0, 3)));
       const unsubSessions = subscribeToCollection('focus_sessions', (data) => setSessions(data.slice(0, 3)));
+      const unsubGrowth = subscribeToCollection('growth_areas', (data) => setGardenAreas(data.slice(0, 3)));
       
       return () => {
         unsubTasks();
         unsubThoughts();
         unsubSessions();
+        unsubGrowth();
       }
     }
   }, [user]);
@@ -175,21 +178,33 @@ export default function Home() {
             </button>
           </div>
           <div className="space-y-8">
-            {[
-              { label: 'Creative Direction', progress: Math.min(100, Math.floor(totalFocus / 360) + 40), color: 'bg-primary' },
-              { label: 'Quiet Reflection', progress: Math.min(100, thoughts.length * 10 + 20), color: 'bg-secondary' },
-              { label: 'Technical Craft', progress: Math.min(100, tasks.length * 5 + 30), color: 'bg-primary' },
-            ].map((area, i) => (
-              <div key={i} className="group cursor-pointer space-y-4">
+            {gardenAreas.length > 0 ? gardenAreas.map((area, i) => (
+              <div key={i} onClick={() => navigate('/skills')} className="group cursor-pointer space-y-4">
                 <div className="flex justify-between items-end">
-                  <span className="font-sans text-sm font-semibold tracking-tight text-on-surface-variant group-hover:text-primary transition-colors">{area.label}</span>
-                  <span className="font-mono text-[10px] opacity-40">{area.progress}%</span>
+                  <span className="font-sans text-sm font-semibold tracking-tight text-on-surface-variant group-hover:text-primary transition-colors">{area.name}</span>
+                  <span className="font-mono text-[10px] opacity-40">Lv.{area.level} • {area.growthProgress}%</span>
                 </div>
                 <div className="h-1 w-full bg-white rounded-full overflow-hidden">
-                  <div className={`h-full ${area.color} transition-all duration-1000`} style={{ width: `${area.progress}%` }}></div>
+                  <div className={`h-full bg-primary transition-all duration-1000`} style={{ width: `${area.growthProgress}%` }}></div>
                 </div>
               </div>
-            ))}
+            )) : (
+              [
+                { label: 'Creative Direction', progress: 40, color: 'bg-primary' },
+                { label: 'Quiet Reflection', progress: 20, color: 'bg-secondary' },
+                { label: 'Technical Craft', progress: 30, color: 'bg-primary' },
+              ].map((area, i) => (
+                <div key={i} className="group cursor-pointer space-y-4 opacity-40">
+                  <div className="flex justify-between items-end">
+                    <span className="font-sans text-sm font-semibold tracking-tight text-on-surface-variant">{area.label}</span>
+                    <span className="font-mono text-[10px]">{area.progress}%</span>
+                  </div>
+                  <div className="h-1 w-full bg-white rounded-full overflow-hidden">
+                    <div className={`h-full ${area.color} transition-all duration-1000`} style={{ width: `${area.progress}%` }}></div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
